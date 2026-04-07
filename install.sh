@@ -239,17 +239,20 @@ install_admin() {
     info "启动管理平台..."
     cd edge-admin
     chmod +x bin/edge-admin
-    bin/edge-admin start
+    # nohup 后台启动，防止阻塞脚本
+    nohup bin/edge-admin start > /dev/null 2>&1 &
+    sleep 3
 
-    info "注册系统服务..."
-    bin/edge-admin service
-
-    local pid=$(pgrep -f "bin/edge-admin" || true)
+    # 检查是否启动成功
+    local pid=$(pgrep -f "edge-admin" || true)
     if [ -n "$pid" ]; then
         info "管理平台启动成功! PID: $pid"
     else
         warn "管理平台可能未正常启动，请检查日志: ${INSTALL_DIR}/edge-admin/logs/run.log"
     fi
+
+    info "注册系统服务..."
+    bin/edge-admin service || true
 
     echo ""
     echo -e "${GREEN}================================================${NC}"
@@ -477,6 +480,9 @@ show_status() {
 
 # ============== 卸载 ==============
 uninstall() {
+    # 卸载函数内部关闭 set -e，确保所有清理步骤都能执行
+    set +e
+
     header "卸载 GoEdge"
     warn "此操作将停止所有 GoEdge 服务并删除程序文件"
     warn "数据库数据不会被删除"
@@ -484,43 +490,54 @@ uninstall() {
     read -p "确认卸载? [y/N]: " confirm
     if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
         info "已取消"
+        set -e
         return
     fi
 
     info "停止服务..."
-    # 先尝试 systemd 停止
-    systemctl stop edge-admin 2>/dev/null || true
-    systemctl stop edge-user 2>/dev/null || true
-    systemctl stop edge-dns 2>/dev/null || true
 
-    # 用 timeout 防卡死，超时则强杀
-    if [ -x "$INSTALL_DIR/edge-admin/bin/edge-admin" ]; then
-        timeout 5 "$INSTALL_DIR/edge-admin/bin/edge-admin" stop 2>/dev/null || true
-    fi
-    if [ -x "$INSTALL_DIR/edge-user/bin/edge-user" ]; then
-        timeout 5 "$INSTALL_DIR/edge-user/bin/edge-user" stop 2>/dev/null || true
-    fi
-    if [ -x "$INSTALL_DIR/edge-dns/bin/edge-dns" ]; then
-        timeout 5 "$INSTALL_DIR/edge-dns/bin/edge-dns" stop 2>/dev/null || true
-    fi
+    # 第一步: 强杀所有进程 (最可靠)
+    info "强制终止所有 GoEdge 进程..."
+    pkill -9 -f "edge-admin" 2>/dev/null
+    pkill -9 -f "edge-api" 2>/dev/null
+    pkill -9 -f "edge-user" 2>/dev/null
+    pkill -9 -f "edge-dns" 2>/dev/null
+    pkill -9 -f "edge-node" 2>/dev/null
+    sleep 2
 
-    # 强杀残留进程
-    pkill -f "edge-admin" 2>/dev/null || true
-    pkill -f "edge-user" 2>/dev/null || true
-    pkill -f "edge-dns" 2>/dev/null || true
-    sleep 1
+    # 确认进程已全部杀死
+    local remaining=$(pgrep -f "edge-(admin|api|user|dns|node)" 2>/dev/null || true)
+    if [ -n "$remaining" ]; then
+        warn "部分进程仍在运行，再次强杀..."
+        kill -9 $remaining 2>/dev/null
+        sleep 1
+    fi
+    info "所有进程已停止"
 
-    # 移除 systemd 服务
-    systemctl disable edge-admin 2>/dev/null || true
-    systemctl disable edge-user 2>/dev/null || true
-    systemctl disable edge-dns 2>/dev/null || true
+    # 第二步: 移除 systemd 服务
+    info "移除系统服务..."
+    systemctl stop edge-admin 2>/dev/null
+    systemctl stop edge-user 2>/dev/null
+    systemctl stop edge-dns 2>/dev/null
+    systemctl disable edge-admin 2>/dev/null
+    systemctl disable edge-user 2>/dev/null
+    systemctl disable edge-dns 2>/dev/null
     rm -f /etc/systemd/system/edge-*.service
-    systemctl daemon-reload 2>/dev/null || true
+    systemctl daemon-reload 2>/dev/null
 
+    # 第三步: 删除程序文件
     info "删除程序文件..."
     rm -rf "$INSTALL_DIR"
 
+    # 确认删除成功
+    if [ ! -d "$INSTALL_DIR" ]; then
+        info "程序文件已删除"
+    else
+        warn "删除失败，请手动执行: rm -rf $INSTALL_DIR"
+    fi
+
     info "卸载完成"
+    set -e
     info "如需清理 hosts 文件，请手动编辑 /etc/hosts"
 }
 
