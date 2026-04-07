@@ -525,15 +525,38 @@ uninstall() {
     rm -f /etc/systemd/system/edge-*.service
     systemctl daemon-reload 2>/dev/null
 
-    # 第三步: 删除程序文件
-    info "删除程序文件..."
+    # 第三步: 删除所有程序文件和配置
+    info "删除程序文件和配置..."
     rm -rf "$INSTALL_DIR"
+
+    # 第四步: 清理残留数据目录
+    rm -rf /root/.edge-admin 2>/dev/null
+    rm -rf /root/.edge-api 2>/dev/null
+    rm -rf /root/.edge-user 2>/dev/null
+    rm -rf /root/.edge-dns 2>/dev/null
+    rm -rf /root/.edge-node 2>/dev/null
+    # 清理可能的缓存和数据目录
+    rm -rf /tmp/edge-* 2>/dev/null
+    rm -rf /var/log/edge-* 2>/dev/null
 
     # 确认删除成功
     if [ ! -d "$INSTALL_DIR" ]; then
         info "程序文件已删除"
     else
         warn "删除失败，请手动执行: rm -rf $INSTALL_DIR"
+    fi
+
+    # 第五步: 询问是否清理数据库
+    echo ""
+    read -p "是否同时删除 MySQL 中的 goedge 数据库? [y/N]: " drop_db
+    if [ "$drop_db" = "y" ] || [ "$drop_db" = "Y" ]; then
+        read -p "请输入 MySQL root 密码: " -s mysql_root_pwd
+        echo ""
+        if mysql -uroot -p"$mysql_root_pwd" -e "DROP DATABASE IF EXISTS goedge;" 2>/dev/null; then
+            info "数据库 goedge 已删除"
+        else
+            warn "数据库删除失败，请手动在 aaPanel 中删除"
+        fi
     fi
 
     info "卸载完成"
