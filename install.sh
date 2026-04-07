@@ -488,16 +488,31 @@ uninstall() {
     fi
 
     info "停止服务..."
-    cd "$INSTALL_DIR/edge-admin" 2>/dev/null && bin/edge-admin stop 2>/dev/null || true
-    cd "$INSTALL_DIR/edge-user" 2>/dev/null && bin/edge-user stop 2>/dev/null || true
-    cd "$INSTALL_DIR/edge-dns" 2>/dev/null && bin/edge-dns stop 2>/dev/null || true
+    # 先尝试 systemd 停止
+    systemctl stop edge-admin 2>/dev/null || true
+    systemctl stop edge-user 2>/dev/null || true
+    systemctl stop edge-dns 2>/dev/null || true
+
+    # 用 timeout 防卡死，超时则强杀
+    if [ -x "$INSTALL_DIR/edge-admin/bin/edge-admin" ]; then
+        timeout 5 "$INSTALL_DIR/edge-admin/bin/edge-admin" stop 2>/dev/null || true
+    fi
+    if [ -x "$INSTALL_DIR/edge-user/bin/edge-user" ]; then
+        timeout 5 "$INSTALL_DIR/edge-user/bin/edge-user" stop 2>/dev/null || true
+    fi
+    if [ -x "$INSTALL_DIR/edge-dns/bin/edge-dns" ]; then
+        timeout 5 "$INSTALL_DIR/edge-dns/bin/edge-dns" stop 2>/dev/null || true
+    fi
+
+    # 强杀残留进程
+    pkill -f "edge-admin" 2>/dev/null || true
+    pkill -f "edge-user" 2>/dev/null || true
+    pkill -f "edge-dns" 2>/dev/null || true
+    sleep 1
 
     # 移除 systemd 服务
-    systemctl stop edge-admin 2>/dev/null || true
     systemctl disable edge-admin 2>/dev/null || true
-    systemctl stop edge-user 2>/dev/null || true
     systemctl disable edge-user 2>/dev/null || true
-    systemctl stop edge-dns 2>/dev/null || true
     systemctl disable edge-dns 2>/dev/null || true
     rm -f /etc/systemd/system/edge-*.service
     systemctl daemon-reload 2>/dev/null || true
