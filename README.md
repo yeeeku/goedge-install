@@ -63,24 +63,86 @@ sudo ./install.sh --uninstall
 
 ## 安装流程
 
-### 1. 前置准备
-- 一台 Linux 服务器 (建议 2C2G 以上)
-- 已安装 aaPanel (国际版宝塔)
-- Root 权限
+### 1. 安装 aaPanel (国际版宝塔)
 
-### 2. 安装步骤
+如果还没装 aaPanel，先安装：
 
-1. 运行安装脚本，选择 **完整安装**
-2. 选择下载源 (国际/国内)
-3. 在 aaPanel 中安装 MySQL 5.7/8.0
-4. 浏览器访问 `http://服务器IP:7788` 完成安装向导
-5. 安装向导中填写 MySQL 数据库信息
-6. 回到脚本替换边缘节点部署包
-7. 在管理平台中激活旗舰版
+```bash
+# Ubuntu/Debian
+wget -O install.sh http://www.aapanel.com/script/install-ubuntu_6.0_en.sh && bash install.sh aapanel
 
-### 3. aaPanel 反向代理 (可选)
+# CentOS
+yum install -y wget && wget -O install.sh http://www.aapanel.com/script/install_6.0_en.sh && bash install.sh aapanel
+```
 
-在 aaPanel 中添加网站 → 反向代理 → 目标: `http://127.0.0.1:7788`
+安装完成后，浏览器访问面板地址登录。
+
+### 2. aaPanel 中安装必要软件
+
+登录 aaPanel 后，在 **App Store** 中安装以下软件（选择 Quick install）：
+
+| 软件 | 版本 | 必要性 | 说明 |
+|------|------|--------|------|
+| **Nginx** | 1.24+ | 必装 | 反向代理管理平台/用户平台 |
+| **MySQL** | 5.7 / 8.0 / MariaDB 10.11 | 必装 | GoEdge 数据库 |
+| **phpMyAdmin** | 5.2 | 推荐 | 方便管理数据库 |
+| PHP | 8.3 | 可选 | GoEdge 本身不需要，但 phpMyAdmin 需要 |
+| Pure-Ftpd | 1.0.49 | 可选 | 文件传输，按需安装 |
+
+> **注意**: GoEdge 本身是 Go 编写的独立程序，不需要 PHP/Apache 运行。Nginx 主要用于反向代理和 SSL。
+
+### 3. aaPanel 中创建数据库
+
+1. 进入 aaPanel → **Databases**
+2. 点击 **Add Database**
+3. 填写：
+   - Database name: `goedge`
+   - Username: `goedge`
+   - Password: 设置一个强密码（记住，后面要用）
+   - Access: `Local server`
+4. 点击 Submit
+
+### 4. 运行安装脚本
+
+```bash
+bash <(curl -sL https://raw.githubusercontent.com/yeeeku/goedge-install/main/install.sh)
+```
+
+选择 **1) 完整安装**，按提示操作：
+1. 选择下载源（默认 GitHub 自有源）
+2. MySQL 选择 **跳过**（因为已经在 aaPanel 中装好了）
+3. 等待管理平台启动
+
+### 5. 完成安装向导
+
+1. 浏览器访问 `http://服务器IP:7788`
+2. 进入安装向导，填写数据库信息：
+   - 数据库地址: `127.0.0.1`
+   - 端口: `3306`
+   - 数据库名: `goedge`
+   - 用户名: `goedge`
+   - 密码: 上面设置的密码
+3. 设置管理员账号密码
+4. 完成安装
+
+### 6. 替换边缘节点包 & 激活
+
+1. 回到 SSH，再次运行脚本，选择 **4) 替换边缘节点部署包**
+2. 在管理平台中：**系统设置** → **商业版本** → **激活**，粘贴脚本中提供的注册码
+
+### 7. aaPanel 配置反向代理 (推荐)
+
+通过域名 + SSL 访问管理平台：
+
+1. 在 aaPanel 中 **Website** → **Add Site**，绑定你的域名（如 `cdn.yourdomain.com`）
+2. 点击域名 → **SSL** → 申请 Let's Encrypt 免费证书，开启强制 HTTPS
+3. 点击 **Reverse Proxy** → **Add Reverse Proxy**：
+   - Proxy name: `goedge`
+   - Target URL: `http://127.0.0.1:7788`
+   - 勾选 Send Domain
+4. 之后通过 `https://cdn.yourdomain.com` 访问管理平台
+
+如果还装了用户平台，同样操作，Target URL 改为用户平台的端口。
 
 ## 端口说明
 
