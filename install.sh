@@ -23,9 +23,11 @@ PKG_MGR=""
 SOURCE=""
 SOURCE_NAME=""
 
-# 国际源 (Cloudflare)
+# GitHub 自有源 (推荐)
+GH_BASE="https://github.com/yeeeku/goedge-install/releases/download/v1.3.9"
+# 备用国际源 (Cloudflare)
 CF_BASE="https://static-file-global.353355.xyz/goedge"
-# 国内源 (阿里云CDN)
+# 备用国内源 (阿里云CDN)
 ALI_BASE_ADMIN_AMD64="https://fj.ly93.cc/37/1809553326"
 ALI_BASE_ADMIN_ARM64="https://fj.ly93.cc/37/1809551208"
 ALI_BASE_NODE_AMD64="https://fj.ly93.cc/37/1809540483"
@@ -90,18 +92,23 @@ detect_os() {
 # ============== 下载源选择 ==============
 select_source() {
     header "选择下载源"
-    echo -e "  ${BOLD}1)${NC} 国际源 (Cloudflare) - 海外服务器推荐"
-    echo -e "  ${BOLD}2)${NC} 国内源 (阿里云CDN) - 国内服务器推荐"
+    echo -e "  ${BOLD}1)${NC} GitHub 自有源 - 安全可靠，推荐"
+    echo -e "  ${BOLD}2)${NC} 备用国际源 (Cloudflare) - 海外服务器备用"
+    echo -e "  ${BOLD}3)${NC} 备用国内源 (阿里云CDN) - 国内服务器备用"
     echo ""
-    read -p "请选择 [1/2] (默认: 1): " choice
+    read -p "请选择 [1/2/3] (默认: 1): " choice
     case "$choice" in
         2)
+            SOURCE="cf"
+            SOURCE_NAME="备用国际源 (Cloudflare)"
+            ;;
+        3)
             SOURCE="ali"
-            SOURCE_NAME="国内源 (阿里云CDN)"
+            SOURCE_NAME="备用国内源 (阿里云CDN)"
             ;;
         *)
-            SOURCE="cf"
-            SOURCE_NAME="国际源 (Cloudflare)"
+            SOURCE="gh"
+            SOURCE_NAME="GitHub 自有源"
             ;;
     esac
     info "已选择: ${BOLD}$SOURCE_NAME${NC}"
@@ -109,7 +116,9 @@ select_source() {
 
 # ============== 获取下载链接 ==============
 get_admin_url() {
-    if [ "$SOURCE" = "cf" ]; then
+    if [ "$SOURCE" = "gh" ]; then
+        echo "${GH_BASE}/edge-admin-linux-${ARCH}-plus-v1.3.9.zip"
+    elif [ "$SOURCE" = "cf" ]; then
         echo "${CF_BASE}/edge-admin-linux-${ARCH}-plus-v1.3.9.zip"
     else
         if [ "$ARCH" = "amd64" ]; then
@@ -122,7 +131,9 @@ get_admin_url() {
 
 get_node_url() {
     local target_arch=${1:-$ARCH}
-    if [ "$SOURCE" = "cf" ]; then
+    if [ "$SOURCE" = "gh" ]; then
+        echo "${GH_BASE}/edge-node-linux-${target_arch}-plus-v1.3.9.zip"
+    elif [ "$SOURCE" = "cf" ]; then
         echo "${CF_BASE}/edge-node-linux-${target_arch}-plus-v1.3.9.zip"
     else
         if [ "$target_arch" = "amd64" ]; then
@@ -134,7 +145,9 @@ get_node_url() {
 }
 
 get_user_url() {
-    if [ "$SOURCE" = "cf" ]; then
+    if [ "$SOURCE" = "gh" ]; then
+        echo "${GH_BASE}/edge-user-linux-${ARCH}-v1.3.9.zip"
+    elif [ "$SOURCE" = "cf" ]; then
         echo "${CF_BASE}/edge-user-linux-${ARCH}-v1.3.9.zip"
     else
         if [ "$ARCH" = "amd64" ]; then
@@ -146,7 +159,9 @@ get_user_url() {
 }
 
 get_dns_url() {
-    if [ "$SOURCE" = "cf" ]; then
+    if [ "$SOURCE" = "gh" ]; then
+        echo "${GH_BASE}/edge-dns-linux-${ARCH}-v1.3.9.zip"
+    elif [ "$SOURCE" = "cf" ]; then
         echo "${CF_BASE}/edge-dns-linux-${ARCH}-v1.3.9.zip"
     else
         if [ "$ARCH" = "amd64" ]; then
