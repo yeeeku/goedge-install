@@ -27,7 +27,7 @@
 ### 一键安装
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/yeeeku/goedge-install/main/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/yeeeku/goedge-install/master/install.sh)
 ```
 
 ### 手动安装
@@ -105,7 +105,7 @@ yum install -y wget && wget -O install.sh http://www.aapanel.com/script/install_
 ### 4. 运行安装脚本
 
 ```bash
-bash <(curl -sL https://raw.githubusercontent.com/yeeeku/goedge-install/main/install.sh)
+bash <(curl -sL https://raw.githubusercontent.com/yeeeku/goedge-install/master/install.sh)
 ```
 
 选择 **1) 完整安装**，按提示操作：
