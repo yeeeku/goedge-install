@@ -56,11 +56,11 @@ download_ip2region() {
     info "下载最新 ip2region.xdb..."
     mkdir -p "$INSTALL_DIR"
 
-    # 多个下载源，依次尝试
+    # 多个下载源，依次尝试 (文件已改名为 ip2region_v4.xdb)
     local urls=(
-        "https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region.xdb"
-        "https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region.xdb"
-        "https://ghp.ci/https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region.xdb"
+        "https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region_v4.xdb"
+        "https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region_v4.xdb"
+        "https://ghp.ci/https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region_v4.xdb"
     )
 
     local success=false
