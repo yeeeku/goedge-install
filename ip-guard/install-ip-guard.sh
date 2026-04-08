@@ -55,9 +55,39 @@ install_go() {
 download_ip2region() {
     info "下载最新 ip2region.xdb..."
     mkdir -p "$INSTALL_DIR"
-    wget -q --show-progress -O "$INSTALL_DIR/ip2region.xdb" \
+
+    # 多个下载源，依次尝试
+    local urls=(
+        "https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region.xdb"
         "https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region.xdb"
-    info "ip2region.xdb 下载完成"
+        "https://ghp.ci/https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region.xdb"
+    )
+
+    local success=false
+    for url in "${urls[@]}"; do
+        info "尝试下载: $url"
+        if wget -T 30 -q --show-progress -O "$INSTALL_DIR/ip2region.xdb" "$url" 2>&1; then
+            # 检查文件是否有效 (大于 1MB)
+            local size=$(stat -c%s "$INSTALL_DIR/ip2region.xdb" 2>/dev/null || echo 0)
+            if [ "$size" -gt 1000000 ]; then
+                success=true
+                break
+            else
+                warn "下载的文件太小 (${size} bytes)，可能下载失败"
+                rm -f "$INSTALL_DIR/ip2region.xdb"
+            fi
+        else
+            warn "下载失败，尝试下一个源..."
+        fi
+    done
+
+    if [ "$success" = false ]; then
+        error "所有下载源都失败了，请手动下载 ip2region.xdb 到 $INSTALL_DIR/"
+        error "下载地址: https://github.com/lionsoul2014/ip2region/raw/master/data/ip2region.xdb"
+        exit 1
+    fi
+
+    info "ip2region.xdb 下载完成 ($(du -h "$INSTALL_DIR/ip2region.xdb" | cut -f1))"
 }
 
 build_service() {
@@ -141,6 +171,7 @@ require github.com/lionsoul2014/ip2region/binding/golang v0.0.0-20240510055607-8
 MODEOF
 
     cd "$INSTALL_DIR/src"
+    export GOPROXY=https://goproxy.io,https://proxy.golang.org,direct
     /usr/local/go/bin/go mod tidy
     CGO_ENABLED=0 /usr/local/go/bin/go build -o "$INSTALL_DIR/ip-guard" main.go
     info "编译完成"
@@ -171,9 +202,9 @@ EOF
 
 update_xdb() {
     info "更新 ip2region.xdb..."
-    wget -q --show-progress -O "$INSTALL_DIR/ip2region.xdb.new" \
-        "https://raw.githubusercontent.com/lionsoul2014/ip2region/master/data/ip2region.xdb"
-    mv -f "$INSTALL_DIR/ip2region.xdb.new" "$INSTALL_DIR/ip2region.xdb"
+    # 备份旧文件
+    cp -f "$INSTALL_DIR/ip2region.xdb" "$INSTALL_DIR/ip2region.xdb.bak" 2>/dev/null || true
+    download_ip2region
     systemctl restart ip-guard
     info "更新完成并已重启服务"
 }
