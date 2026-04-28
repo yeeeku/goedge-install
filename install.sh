@@ -190,6 +190,41 @@ install_dependencies() {
     info "依赖安装完成"
 }
 
+# ============== 开放防火墙端口 ==============
+open_firewall_ports() {
+    local ports=("$@")
+    [ ${#ports[@]} -eq 0 ] && return 0
+
+    # firewalld (CentOS/RHEL/Rocky 默认)
+    if command -v firewall-cmd &>/dev/null && systemctl is-active --quiet firewalld 2>/dev/null; then
+        for port in "${ports[@]}"; do
+            firewall-cmd --permanent --add-port="${port}/tcp" &>/dev/null || true
+            # 53 端口需要 UDP
+            if [ "$port" = "53" ]; then
+                firewall-cmd --permanent --add-port="${port}/udp" &>/dev/null || true
+            fi
+        done
+        firewall-cmd --reload &>/dev/null || true
+        info "已通过 firewalld 放行端口: ${ports[*]}"
+        return 0
+    fi
+
+    # ufw (Ubuntu/Debian 常见)
+    if command -v ufw &>/dev/null && ufw status 2>/dev/null | grep -q "Status: active"; then
+        for port in "${ports[@]}"; do
+            ufw allow "${port}/tcp" &>/dev/null || true
+            if [ "$port" = "53" ]; then
+                ufw allow "${port}/udp" &>/dev/null || true
+            fi
+        done
+        info "已通过 ufw 放行端口: ${ports[*]}"
+        return 0
+    fi
+
+    info "未检测到启用的防火墙(firewalld/ufw)，跳过端口放行"
+    warn "如果在云服务器上访问不通，请确认厂商控制台的【安全组】已放行: ${ports[*]}"
+}
+
 # ============== 屏蔽官方域名 ==============
 block_official_domains() {
     header "屏蔽官方域名"
@@ -253,6 +288,9 @@ install_admin() {
 
     info "注册系统服务..."
     bin/edge-admin service || true
+
+    # 自动放行 7788 端口
+    open_firewall_ports 7788
 
     echo ""
     echo -e "${GREEN}================================================${NC}"
@@ -400,6 +438,9 @@ install_dns() {
     info "解压中..."
     unzip -o "$filename" -d . > /dev/null
     rm -f "$filename"
+
+    # 放行 DNS 53 端口 (TCP+UDP)
+    open_firewall_ports 53
 
     echo ""
     warn "智能DNS需要配置文件才能启动"
